@@ -1,3 +1,4 @@
+
 const cheerio = require("cheerio");
 
 const BASE_URL = "https://animesalt.cx";
@@ -6,7 +7,6 @@ const BASE_URL = "https://animesalt.cx";
 // GENERATE ANIMESALT EPISODE SLUG
 
 function getEpisodeSlug(mapping, anilistId, episode) {
-
     const entries = mapping[String(anilistId)];
 
     if (!entries) {
@@ -32,35 +32,61 @@ function getEpisodeSlug(mapping, anilistId, episode) {
 // FETCH ANIMESALT PLAYER URLS
 
 async function getPlayerUrls(anilistId, episode, mapping) {
-
     const slug = getEpisodeSlug(mapping, anilistId, episode);
 
     const pageUrl = `${BASE_URL}/episode/${slug}/`;
 
     const response = await fetch(pageUrl, {
+        method: "GET",
+        redirect: "follow",
+
         headers: {
             "User-Agent":
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/160.0.0.0 Safari/537.36",
 
-            Referer: `${BASE_URL}/`
+            "Accept":
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+
+            "Accept-Language": "en-US,en;q=0.9",
+
+            "Referer": `${BASE_URL}/`,
+
+            "Upgrade-Insecure-Requests": "1"
         },
 
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(20000)
     });
+
+
+    // FALLBACK WHEN SERVER-SIDE ACCESS IS DENIED
+
+    if (response.status === 403) {
+        console.warn(
+            `AnimeSalt returned 403 for ${slug}. Using episode page fallback.`
+        );
+
+        return {
+            slug,
+            pageUrl,
+            ravok: null,
+            abyss: pageUrl,
+            fallback: "episode-page"
+        };
+    }
+
 
     if (!response.ok) {
         throw new Error(`AnimeSalt returned HTTP ${response.status}`);
     }
 
-    const html = await response.text();
 
+    // PARSE EPISODE HTML
+
+    const html = await response.text();
     const $ = cheerio.load(html);
 
 
-    // EXTRACT PLAYER IFRAME URL
-
     function extractPlayer(optionId) {
-
         const option = $(
             `#options-${optionId}, #option-${optionId}, #opt-${optionId}`
         ).first();
@@ -73,11 +99,8 @@ async function getPlayerUrls(anilistId, episode, mapping) {
             null;
 
         if (url && url.startsWith("//")) {
-
             url = `https:${url}`;
-
         } else if (url && url.startsWith("/")) {
-
             url = new URL(url, BASE_URL).href;
         }
 
@@ -85,19 +108,21 @@ async function getPlayerUrls(anilistId, episode, mapping) {
     }
 
 
-    // SERVER 1: RAVOK
     const ravok = extractPlayer(0);
-
-    // SERVER 2: ABYSSPLAYER MULTI-AUDIO
-    // Language selection is handled inside the AbyssPlayer itself.
     const abyss = extractPlayer(1);
+
+
+    if (!abyss && !ravok) {
+        throw new Error("No AnimeSalt players found on episode page.");
+    }
 
 
     return {
         slug,
         pageUrl,
         ravok,
-        abyss
+        abyss,
+        fallback: null
     };
 }
 
