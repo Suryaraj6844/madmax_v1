@@ -1,17 +1,20 @@
-
 const express = require("express");
 const cors = require("cors");
 const mapping = require("./data/anime-mapping.json");
 const { getPlayerUrls } = require("./animesalt");
 
 const app = express();
-const PORT = 3000;
+
+const PORT = process.env.PORT || 3000;
+const HOST = "0.0.0.0";
 
 app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-    res.json({ message: "MadMax API is running!" });
+    res.json({
+        message: "MadMax API is running!"
+    });
 });
 
 app.get("/api/animesalt", async (req, res) => {
@@ -26,7 +29,11 @@ app.get("/api/animesalt", async (req, res) => {
             });
         }
 
-        const players = await getPlayerUrls(anilistId, episode, mapping);
+        const players = await getPlayerUrls(
+            anilistId,
+            episode,
+            mapping
+        );
 
         res.json({
             success: true,
@@ -34,6 +41,8 @@ app.get("/api/animesalt", async (req, res) => {
         });
 
     } catch (error) {
+        console.error(error);
+
         res.status(500).json({
             success: false,
             error: error.message
@@ -41,6 +50,6 @@ app.get("/api/animesalt", async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`MadMax API running at http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+    console.log(`MadMax API running on port ${PORT}`);
 });
