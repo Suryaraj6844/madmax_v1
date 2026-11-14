@@ -280,6 +280,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 
         <div class="player-top">
             <strong id="player-title">Now Playing</strong>
+
             <a id="open-player" target="_blank" rel="noopener">
                 Open in new tab ↗
             </a>
@@ -300,6 +301,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 </main>
 
 <script>
+
 const API = "https://graphql.anilist.co";
 const BACKEND = "https://madmax-v1.onrender.com";
 
@@ -464,6 +466,7 @@ function renderResults(list) {
 
             card.classList.add("active");
             selectAnime(anime);
+
         });
 
         fragment.append(card);
@@ -635,6 +638,7 @@ function createTrackControl(providerKey) {
         option.textContent = track.label;
 
         select.append(option);
+
     });
 
     select.value = selectedTracks[providerKey];
@@ -688,8 +692,17 @@ async function loadAnimeSalt() {
 
         animeSaltData = data;
 
-        $("#player-status").textContent =
-            "AnimeSalt ready. Select the audio language inside the player.";
+        if (data.fallback === "episode-page") {
+
+            $("#player-status").textContent =
+                "AnimeSalt blocked server-side extraction. Open the original episode page to use its built-in player and language selector.";
+
+        } else {
+
+            $("#player-status").textContent =
+                "AnimeSalt ready. Select the audio language inside the player.";
+
+        }
 
         renderServers();
 
@@ -782,7 +795,12 @@ function renderServers() {
 
         } else if (key === "animesalt") {
 
-            button.textContent = "Play AnimeSalt";
+            const usingFallback =
+                animeSaltData?.fallback === "episode-page";
+
+            button.textContent = usingFallback
+                ? "Open AnimeSalt Episode"
+                : "Play AnimeSalt";
 
             button.disabled = !animeSaltData?.abyss;
 
@@ -854,6 +872,23 @@ function playAnimeSalt() {
 
     const episode = selectedEpisodes.animesalt || 1;
 
+    // When the backend returns the original episode page as a fallback,
+    // open it directly because AnimeSalt may block iframe embedding.
+
+    if (animeSaltData.fallback === "episode-page") {
+
+        window.open(
+            animeSaltData.abyss,
+            "_blank",
+            "noopener,noreferrer"
+        );
+
+        $("#player-status").textContent =
+            "Opened the AnimeSalt episode page in a new tab. Choose the audio language in its built-in player.";
+
+        return;
+    }
+
     loadPlayer(
         animeSaltData.abyss,
         `${animeName(selectedAnime)} · Episode ${episode} · AnimeSalt Multi-audio`
@@ -877,6 +912,7 @@ function playMegaPlayer() {
     if (!url) return;
 
     // MegaPlay requires its stream URL to be embedded in an iframe.
+
     loadPlayer(
         url,
         `${animeName(selectedAnime)} · Episode ${episode} · MegaPlay ${language.toUpperCase()}`,
@@ -929,6 +965,7 @@ function resetPlayer() {
 
     $("#player-status").textContent =
         "Select a server to play this episode.";
+
 }
 
 </script>
