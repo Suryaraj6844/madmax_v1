@@ -9,7 +9,7 @@ const BASE_URL = "https://animesalt.cx";
 function getEpisodeSlug(mapping, anilistId, episode) {
     const entries = mapping[String(anilistId)];
 
-    if (!entries) {
+    if (!entries || !Array.isArray(entries) || entries.length === 0) {
         throw new Error("Anime not found in mapping");
     }
 
@@ -32,37 +32,48 @@ function getEpisodeSlug(mapping, anilistId, episode) {
 // FETCH ANIMESALT PLAYER URLS
 
 async function getPlayerUrls(anilistId, episode, mapping) {
+
     const slug = getEpisodeSlug(mapping, anilistId, episode);
 
     const pageUrl = `${BASE_URL}/episode/${slug}/`;
 
-    const response = await fetch(pageUrl, {
-        method: "GET",
-        redirect: "follow",
+    console.log(`Fetching AnimeSalt episode: ${pageUrl}`);
 
-        headers: {
-            "User-Agent":
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/160.0.0.0 Safari/537.36",
+    let response;
 
-            "Accept":
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    try {
+        response = await fetch(pageUrl, {
+            method: "GET",
+            redirect: "follow",
 
-            "Accept-Language": "en-US,en;q=0.9",
+            headers: {
+                "User-Agent":
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/160.0.0.0 Safari/537.36",
 
-            "Referer": `${BASE_URL}/`,
+                "Accept":
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
 
-            "Upgrade-Insecure-Requests": "1"
-        },
+                "Accept-Language": "en-US,en;q=0.9",
 
-        signal: AbortSignal.timeout(20000)
-    });
+                "Referer": `${BASE_URL}/`,
+
+                "Upgrade-Insecure-Requests": "1"
+            },
+
+            signal: AbortSignal.timeout(20000)
+        });
+
+    } catch (error) {
+        throw new Error(`AnimeSalt request failed: ${error.message}`);
+    }
 
 
-    // FALLBACK WHEN SERVER-SIDE ACCESS IS DENIED
+    // HANDLE HTTP 403
 
     if (response.status === 403) {
+
         console.warn(
-            `AnimeSalt returned 403 for ${slug}. Using episode page fallback.`
+            `AnimeSalt returned HTTP 403 for ${slug}. Using original episode page fallback.`
         );
 
         return {
@@ -75,6 +86,8 @@ async function getPlayerUrls(anilistId, episode, mapping) {
     }
 
 
+    // HANDLE OTHER HTTP ERRORS
+
     if (!response.ok) {
         throw new Error(`AnimeSalt returned HTTP ${response.status}`);
     }
@@ -83,10 +96,14 @@ async function getPlayerUrls(anilistId, episode, mapping) {
     // PARSE EPISODE HTML
 
     const html = await response.text();
+
     const $ = cheerio.load(html);
 
 
+    // EXTRACT PLAYER IFRAME URL
+
     function extractPlayer(optionId) {
+
         const option = $(
             `#options-${optionId}, #option-${optionId}, #opt-${optionId}`
         ).first();
@@ -99,23 +116,37 @@ async function getPlayerUrls(anilistId, episode, mapping) {
             null;
 
         if (url && url.startsWith("//")) {
+
             url = `https:${url}`;
+
         } else if (url && url.startsWith("/")) {
+
             url = new URL(url, BASE_URL).href;
+
         }
 
         return url;
     }
 
 
+    // SERVER 1: RAVOK
+
     const ravok = extractPlayer(0);
+
+
+    // SERVER 2: ABYSSPLAYER MULTI-AUDIO
+
     const abyss = extractPlayer(1);
 
 
-    if (!abyss && !ravok) {
-        throw new Error("No AnimeSalt players found on episode page.");
+    // CHECK PLAYER AVAILABILITY
+
+    if (!ravok && !abyss) {
+        throw new Error("No AnimeSalt players found on the episode page.");
     }
 
+
+    // RETURN PLAYER DATA
 
     return {
         slug,
@@ -126,6 +157,8 @@ async function getPlayerUrls(anilistId, episode, mapping) {
     };
 }
 
+
+// EXPORT FUNCTION
 
 module.exports = {
     getPlayerUrls
