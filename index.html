@@ -1,0 +1,937 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MadMax</title>
+
+<style>
+:root {
+    color-scheme: dark;
+    font-family: Inter, Arial, sans-serif;
+    background: #090b10;
+    color: #fff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: radial-gradient(ellipse at top, #182235, #090b10 65%);
+    min-height: 100vh;
+}
+
+.app {
+    width: min(1000px, 94%);
+    margin: auto;
+    padding: 45px 0;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 35px;
+}
+
+header h1 {
+    font-size: 55px;
+    letter-spacing: 12px;
+    margin: 0;
+}
+
+header h1 span { color: #8b5cf6; }
+
+header p {
+    color: #8993a5;
+    letter-spacing: 5px;
+    font-size: 11px;
+}
+
+.search {
+    display: flex;
+    gap: 10px;
+    max-width: 700px;
+    margin: auto;
+}
+
+input, select {
+    background: #111722;
+    border: 1px solid #30394b;
+    color: white;
+    padding: 14px;
+    border-radius: 9px;
+    outline: none;
+}
+
+input:focus, select:focus {
+    border-color: #8b5cf6;
+}
+
+.search input {
+    flex: 1;
+    min-width: 0;
+}
+
+button {
+    background: #7c3aed;
+    border: none;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover { background: #8b5cf6; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+#status {
+    text-align: center;
+    color: #9aa4b5;
+    margin: 25px 0;
+}
+
+.results {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+    gap: 16px;
+}
+
+.anime-card {
+    background: #111722;
+    border: 1px solid #30394b;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: .2s;
+}
+
+.anime-card:hover {
+    border-color: #8b5cf6;
+    transform: translateY(-3px);
+}
+
+.anime-card.active { border-color: #a78bfa; }
+
+.anime-card img {
+    width: 100%;
+    aspect-ratio: 3/4;
+    object-fit: cover;
+    display: block;
+}
+
+.anime-info { padding: 10px; }
+
+.anime-info h3 {
+    font-size: 14px;
+    margin: 0 0 7px;
+}
+
+.anime-info p {
+    color: #929db0;
+    font-size: 11px;
+    margin: 0;
+}
+
+#watch-panel {
+    margin-top: 35px;
+    padding: 20px;
+    background: #111722;
+    border: 1px solid #30394b;
+    border-radius: 13px;
+}
+
+.hidden { display: none !important; }
+
+.selected {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.selected img {
+    width: 85px;
+    border-radius: 8px;
+}
+
+.selected h2 { margin: 0 0 8px; }
+
+.ids {
+    color: #aeb8c8;
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+.servers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 15px 0;
+}
+
+.server {
+    background: #0c111b;
+    border: 1px solid #30394b;
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.server h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+}
+
+.server p {
+    color: #929db0;
+    font-size: 12px;
+    min-height: 30px;
+}
+
+.server button {
+    width: 100%;
+    margin-top: 7px;
+}
+
+.server button:disabled {
+    background: #30394b;
+    cursor: not-allowed;
+}
+
+.player {
+    margin-top: 25px;
+}
+
+.player iframe {
+    width: 100%;
+    aspect-ratio: 16/9;
+    border: none;
+    border-radius: 10px;
+    background: #000;
+}
+
+.player-top {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 10px;
+}
+
+.player-top a {
+    color: #b69aff;
+    font-size: 12px;
+}
+
+.episode-control {
+    display: grid;
+    gap: 7px;
+    margin: 12px 0 8px;
+    color: #aeb8c8;
+    font-size: 12px;
+}
+
+.episode-control input,
+.episode-control select {
+    width: 100%;
+    padding: 10px;
+}
+
+@media(max-width: 550px) {
+    .search { flex-direction: column; }
+    .selected img { width: 65px; }
+    header h1 { font-size: 38px; }
+}
+</style>
+</head>
+
+<body>
+
+<main class="app">
+
+<header>
+    <h1>MADMAX<span>.</span></h1>
+    <p>SEARCH · SELECT · PLAY</p>
+</header>
+
+<form class="search" id="search-form">
+    <input id="search-input" placeholder="Search anime..." required>
+    <button id="search-button">Search</button>
+</form>
+
+<p id="status">Search for an anime to get started.</p>
+
+<section class="results" id="results"></section>
+
+<section id="watch-panel" class="hidden">
+
+    <div class="selected">
+        <img id="cover" alt="Anime cover">
+
+        <div>
+            <h2 id="anime-title"></h2>
+            <div class="ids" id="anime-ids"></div>
+        </div>
+    </div>
+
+    <h3>Available Servers</h3>
+
+    <div class="servers" id="servers"></div>
+
+    <section class="player hidden" id="player-section">
+
+        <div class="player-top">
+            <strong id="player-title">Now Playing</strong>
+            <a id="open-player" target="_blank" rel="noopener">
+                Open in new tab ↗
+            </a>
+        </div>
+
+        <iframe
+            id="video-player"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            allowfullscreen>
+        </iframe>
+
+    </section>
+
+    <p id="player-status" class="ids"></p>
+
+</section>
+
+</main>
+
+<script>
+const API = "https://graphql.anilist.co";
+const BACKEND = "http://localhost:3000";
+
+const QUERY = `
+query ($search: String) {
+    Page(page: 1, perPage: 18) {
+        media(
+            search: $search,
+            type: ANIME,
+            sort: SEARCH_MATCH,
+            isAdult: false
+        ) {
+            id
+            idMal
+            title {
+                romaji
+                english
+                native
+            }
+            coverImage {
+                large
+            }
+            episodes
+            format
+            seasonYear
+        }
+    }
+}`;
+
+const $ = selector => document.querySelector(selector);
+
+let selectedAnime = null;
+let animeSaltData = null;
+let resolverRequest = 0;
+
+
+// EPISODE STATE
+
+let selectedEpisodes = {
+    zoko: 1,
+    animesalt: 1,
+    megaplayer: 1
+};
+
+
+// AUDIO STATE
+
+let selectedTracks = {
+    zoko: "dub",
+    megaplayer: "sub"
+};
+
+
+function animeName(anime) {
+    return anime.title.english ||
+           anime.title.romaji ||
+           anime.title.native ||
+           "Unknown";
+}
+
+
+// SEARCH ANIME
+
+$("#search-form").addEventListener("submit", async event => {
+
+    event.preventDefault();
+
+    const search = $("#search-input").value.trim();
+
+    if (!search) return;
+
+    $("#search-button").disabled = true;
+    $("#status").textContent = "Searching AniList...";
+    $("#results").replaceChildren();
+    $("#watch-panel").classList.add("hidden");
+
+    try {
+
+        const response = await fetch(API, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify({
+                query: QUERY,
+                variables: { search }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error("AniList HTTP " + response.status);
+        }
+
+        const data = await response.json();
+
+        if (data.errors) {
+            throw new Error(data.errors[0].message);
+        }
+
+        const animeList = data.data.Page.media;
+
+        if (!animeList.length) {
+            $("#status").textContent = "No anime found.";
+            return;
+        }
+
+        $("#status").textContent =
+            animeList.length + " anime found.";
+
+        renderResults(animeList);
+
+    } catch(error) {
+
+        console.error(error);
+        $("#status").textContent = "Error: " + error.message;
+
+    } finally {
+
+        $("#search-button").disabled = false;
+
+    }
+});
+
+
+// DISPLAY SEARCH RESULTS
+
+function renderResults(list) {
+
+    const fragment = document.createDocumentFragment();
+
+    list.forEach(anime => {
+
+        const card = document.createElement("div");
+        card.className = "anime-card";
+
+        const img = document.createElement("img");
+        img.src = anime.coverImage.large;
+        img.alt = animeName(anime);
+
+        const info = document.createElement("div");
+        info.className = "anime-info";
+
+        const title = document.createElement("h3");
+        title.textContent = animeName(anime);
+
+        const meta = document.createElement("p");
+
+        meta.textContent = [
+            anime.format,
+            anime.seasonYear,
+            anime.episodes ? anime.episodes + " eps" : ""
+        ].filter(Boolean).join(" · ");
+
+        info.append(title, meta);
+        card.append(img, info);
+
+        card.addEventListener("click", () => {
+
+            document.querySelectorAll(".anime-card")
+                .forEach(el => el.classList.remove("active"));
+
+            card.classList.add("active");
+            selectAnime(anime);
+        });
+
+        fragment.append(card);
+
+    });
+
+    $("#results").replaceChildren(fragment);
+}
+
+
+// SELECT ANIME
+
+function selectAnime(anime) {
+
+    selectedAnime = anime;
+    animeSaltData = null;
+
+    selectedEpisodes = {
+        zoko: 1,
+        animesalt: 1,
+        megaplayer: 1
+    };
+
+    selectedTracks = {
+        zoko: "dub",
+        megaplayer: "sub"
+    };
+
+    $("#cover").src = anime.coverImage.large;
+    $("#anime-title").textContent = animeName(anime);
+
+    $("#anime-ids").textContent =
+        `AniList ID: ${anime.id}\nMAL ID: ${anime.idMal ?? "Unavailable"}`;
+
+    $("#player-section").classList.add("hidden");
+    $("#video-player").src = "about:blank";
+    $("#open-player").classList.remove("hidden");
+    $("#player-status").textContent = "";
+
+    $("#watch-panel").classList.remove("hidden");
+
+    renderServers();
+    loadAnimeSalt();
+
+    $("#watch-panel").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+}
+
+
+// PROVIDERS
+
+const providers = {
+
+    zoko: {
+        name: "ZokoAnime",
+        description: "Sub / Dub",
+
+        build(anime, episode, language) {
+
+            if (!anime.idMal) return null;
+
+            return `https://zokoanime.video/stream/mal/${anime.idMal}/${episode}/${language}`;
+        }
+    },
+
+    animesalt: {
+        name: "AnimeSalt",
+        description: "Multi-audio · choose language inside the player"
+    },
+
+    oneanime: {
+        name: "1Anime",
+        description: "Requires 1Anime video ID"
+    },
+
+    megaplayer: {
+        name: "MegaPlayer",
+        description: "AniList ID · Sub / Dub",
+
+        build(anime, episode, language) {
+
+            if (!anime.id) return null;
+
+            return `https://megaplay.buzz/stream/ani/${anime.id}/${episode}/${language}`;
+        }
+    }
+};
+
+
+// EPISODE SELECTOR
+
+function createEpisodeControl(providerKey) {
+
+    const total = Number(selectedAnime?.episodes) || 1;
+
+    const wrapper = document.createElement("label");
+    wrapper.className = "episode-control";
+
+    const caption = document.createElement("span");
+    caption.textContent = `${total} episodes`;
+
+    const input = document.createElement("input");
+
+    input.type = "number";
+    input.min = "1";
+    input.max = String(total);
+    input.step = "1";
+    input.value = String(selectedEpisodes[providerKey] || 1);
+
+    input.setAttribute(
+        "aria-label",
+        `${providers[providerKey].name} episode`
+    );
+
+    input.addEventListener("change", () => {
+
+        let episode = Number(input.value);
+
+        if (!Number.isInteger(episode) || episode < 1) {
+            episode = 1;
+        }
+
+        if (episode > total) {
+            episode = total;
+        }
+
+        input.value = String(episode);
+
+        selectedEpisodes[providerKey] = episode;
+
+        resetPlayer();
+
+        if (providerKey === "animesalt") {
+            loadAnimeSalt();
+        }
+
+    });
+
+    wrapper.append(caption, input);
+
+    return wrapper;
+}
+
+
+// AUDIO SELECTOR
+
+function createTrackControl(providerKey) {
+
+    const wrapper = document.createElement("label");
+    wrapper.className = "episode-control";
+
+    const caption = document.createElement("span");
+    caption.textContent = "Audio / Track";
+
+    const select = document.createElement("select");
+
+    const tracks = [
+        { value: "sub", label: "Sub" },
+        { value: "dub", label: "Dub" }
+    ];
+
+    tracks.forEach(track => {
+
+        const option = document.createElement("option");
+
+        option.value = track.value;
+        option.textContent = track.label;
+
+        select.append(option);
+    });
+
+    select.value = selectedTracks[providerKey];
+
+    select.addEventListener("change", () => {
+
+        selectedTracks[providerKey] = select.value;
+
+        resetPlayer();
+        renderServers();
+
+    });
+
+    wrapper.append(caption, select);
+
+    return wrapper;
+}
+
+
+// LOAD ANIMESALT PLAYER URL
+
+async function loadAnimeSalt() {
+
+    if (!selectedAnime) return;
+
+    const requestId = ++resolverRequest;
+    const episode = selectedEpisodes.animesalt || 1;
+
+    animeSaltData = null;
+
+    resetPlayer();
+
+    $("#player-status").textContent =
+        "Loading AnimeSalt player...";
+
+    renderServers();
+
+    try {
+
+        const response = await fetch(
+            `${BACKEND}/api/animesalt?anilistId=${selectedAnime.id}&episode=${episode}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || "AnimeSalt lookup failed");
+        }
+
+        if (requestId !== resolverRequest) return;
+
+        animeSaltData = data;
+
+        $("#player-status").textContent =
+            "AnimeSalt ready. Select the audio language inside the player.";
+
+        renderServers();
+
+    } catch (error) {
+
+        if (requestId !== resolverRequest) return;
+
+        console.error(error);
+
+        $("#player-status").textContent =
+            "AnimeSalt error: " + error.message;
+
+        renderServers();
+
+    }
+}
+
+
+// DISPLAY SERVER CARDS
+
+function renderServers() {
+
+    const container = $("#servers");
+
+    container.replaceChildren();
+
+    Object.entries(providers).forEach(([key, provider]) => {
+
+        const card = document.createElement("div");
+        card.className = "server";
+
+        const heading = document.createElement("h3");
+        heading.textContent = provider.name;
+
+        const description = document.createElement("p");
+        description.textContent = provider.description;
+
+        card.append(heading, description);
+
+
+        // EPISODE SELECTORS
+
+        if (
+            key === "zoko" ||
+            key === "animesalt" ||
+            key === "megaplayer"
+        ) {
+
+            card.append(createEpisodeControl(key));
+
+        } else {
+
+            const count = document.createElement("p");
+
+            count.textContent =
+                `${Number(selectedAnime.episodes) || 1} episodes`;
+
+            card.append(count);
+
+        }
+
+
+        // AUDIO SELECTORS FOR ZOKO AND MEGAPLAYER
+
+        if (key === "zoko" || key === "megaplayer") {
+
+            card.append(createTrackControl(key));
+
+        }
+
+
+        // PLAY BUTTON
+
+        const button = document.createElement("button");
+
+        if (key === "zoko") {
+
+            const episode = selectedEpisodes.zoko || 1;
+            const language = selectedTracks.zoko;
+
+            button.textContent = `Play ${language.toUpperCase()}`;
+
+            button.disabled = !providers.zoko.build(
+                selectedAnime,
+                episode,
+                language
+            );
+
+            button.addEventListener("click", playZoko);
+
+        } else if (key === "animesalt") {
+
+            button.textContent = "Play AnimeSalt";
+
+            button.disabled = !animeSaltData?.abyss;
+
+            button.addEventListener("click", playAnimeSalt);
+
+        } else if (key === "megaplayer") {
+
+            const episode = selectedEpisodes.megaplayer || 1;
+            const language = selectedTracks.megaplayer;
+
+            button.textContent = `Play ${language.toUpperCase()}`;
+
+            button.disabled = !providers.megaplayer.build(
+                selectedAnime,
+                episode,
+                language
+            );
+
+            button.addEventListener("click", playMegaPlayer);
+
+        } else {
+
+            button.textContent = "Mapping Required";
+            button.disabled = true;
+
+        }
+
+        card.append(button);
+
+        container.append(card);
+
+    });
+}
+
+
+// PLAY ZOKOANIME
+
+function playZoko() {
+
+    const episode = selectedEpisodes.zoko || 1;
+    const language = selectedTracks.zoko;
+
+    const url = providers.zoko.build(
+        selectedAnime,
+        episode,
+        language
+    );
+
+    if (!url) return;
+
+    loadPlayer(
+        url,
+        `${animeName(selectedAnime)} · Episode ${episode} · ZokoAnime ${language.toUpperCase()}`
+    );
+}
+
+
+// PLAY ANIMESALT
+
+function playAnimeSalt() {
+
+    if (!animeSaltData?.abyss) {
+
+        $("#player-status").textContent =
+            "AnimeSalt player is unavailable for this episode.";
+
+        return;
+    }
+
+    const episode = selectedEpisodes.animesalt || 1;
+
+    loadPlayer(
+        animeSaltData.abyss,
+        `${animeName(selectedAnime)} · Episode ${episode} · AnimeSalt Multi-audio`
+    );
+}
+
+
+// PLAY MEGAPLAYER
+
+function playMegaPlayer() {
+
+    const episode = selectedEpisodes.megaplayer || 1;
+    const language = selectedTracks.megaplayer;
+
+    const url = providers.megaplayer.build(
+        selectedAnime,
+        episode,
+        language
+    );
+
+    if (!url) return;
+
+    // MegaPlay requires its stream URL to be embedded in an iframe.
+    loadPlayer(
+        url,
+        `${animeName(selectedAnime)} · Episode ${episode} · MegaPlay ${language.toUpperCase()}`,
+        false
+    );
+}
+
+
+// LOAD IFRAME
+
+function loadPlayer(url, title, showOpenLink = true) {
+
+    $("#video-player").src = url;
+
+    const openLink = $("#open-player");
+
+    openLink.classList.toggle("hidden", !showOpenLink);
+
+    if (showOpenLink) {
+
+        openLink.href = url;
+
+    } else {
+
+        openLink.removeAttribute("href");
+
+    }
+
+    $("#player-title").textContent = title;
+
+    $("#player-status").textContent =
+        "Loading selected player...";
+
+    $("#player-section").classList.remove("hidden");
+
+    $("#player-section").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+}
+
+
+// RESET PLAYER
+
+function resetPlayer() {
+
+    $("#video-player").src = "about:blank";
+
+    $("#player-section").classList.add("hidden");
+
+    $("#player-status").textContent =
+        "Select a server to play this episode.";
+}
+
+</script>
+
+</body>
+</html>
